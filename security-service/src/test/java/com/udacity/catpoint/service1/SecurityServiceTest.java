@@ -3,7 +3,7 @@ package com.udacity.catpoint.service1;
 
 import com.udacity.catpoint.application.StatusListener;
 import com.udacity.catpoint.data.*;
-import com.udacity.catpoint.service.FakeImageService;
+import com.udacity.image.service.FakeImageService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 

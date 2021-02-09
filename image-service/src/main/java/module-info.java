@@ -1,5 +1,5 @@
 module imageservice {
-    exports com.udacity.catpoint.service;
+    exports com.udacity.image.service;
     requires transitive org.slf4j;
     requires transitive software.amazon.awssdk.services.rekognition;
     requires transitive software.amazon.awssdk.auth;

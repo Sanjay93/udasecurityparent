@@ -2,7 +2,7 @@ package com.udacity.catpoint.application;
 
 import com.udacity.catpoint.data.AlarmStatus;
 import com.udacity.catpoint.service1.SecurityService;
-import com.udacity.catpoint.service.StyleService;
+import com.udacity.image.service.StyleService;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;

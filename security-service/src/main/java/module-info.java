@@ -7,6 +7,7 @@ module securityservice {
     requires transitive miglayout.swing;
     requires transitive imageservice;
     requires transitive java.prefs;
-    requires transitive guava;
+//    requires transitive guava;
     requires transitive gson;
+    requires transitive com.google.common;
 }
