@@ -48,17 +48,6 @@ public class SecurityServiceTest {
         securityService.removeSensor(sensor);
     }
 
-    private Set<Sensor> getSensors(boolean active, int count) {
-        String randomString = UUID.randomUUID().toString();
-
-        Set<Sensor> sensors = new HashSet<>();
-        for (int i = 0; i <= count; i++) {
-            sensors.add(new Sensor(randomString, SensorType.DOOR));
-        }
-        sensors.forEach(it -> it.setActive(active));
-        return sensors;
-    }
-
     /*
      * 1. If alarm is armed and a sensor becomes activated, put the system into pending alarm status.
      */
@@ -117,7 +106,7 @@ public class SecurityServiceTest {
                 .thenReturn(AlarmStatus.ALARM);
         securityService.changeSensorActivationStatus(sensor, false);
         Mockito.verify(securityRepository, Mockito.times(0))
-                .setAlarmStatus(any(AlarmStatus.class));
+                .setAlarmStatus(AlarmStatus.ALARM);
     }
 
     /*
@@ -125,14 +114,14 @@ public class SecurityServiceTest {
      */
     @Test
     public void activateActiveSensorWhileSystemInPendingStateAlarmResult() {
-        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
-        sensor.setActive(true);
-        Mockito.when(securityRepository.getAlarmStatus())
-                .thenReturn(AlarmStatus.PENDING_ALARM);
+        Mockito.when(securityRepository.getSensors()).thenReturn(getSensors(true, 2));
+        Mockito.when(securityService.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        Mockito.when(securityService.getAlarmStatus()).thenReturn(AlarmStatus.PENDING_ALARM);
         securityService.changeSensorActivationStatus(sensor, true);
-        Mockito.verify(securityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        ArgumentCaptor<AlarmStatus> captor = ArgumentCaptor.forClass(AlarmStatus.class);
+        Mockito.verify(securityRepository, atMostOnce()).setAlarmStatus(captor.capture());
+        assertEquals(captor.getValue(), AlarmStatus.ALARM);
     }
 
     /*
@@ -147,7 +136,7 @@ public class SecurityServiceTest {
                 .thenReturn(AlarmStatus.PENDING_ALARM);
         securityService.changeSensorActivationStatus(sensor, false);
         Mockito.verify(securityRepository, Mockito.times(0))
-                .setAlarmStatus(any(AlarmStatus.class));
+                .setAlarmStatus(AlarmStatus.PENDING_ALARM);
     }
 
     /*
@@ -226,4 +215,15 @@ public class SecurityServiceTest {
         securityService.setArmingStatus(status);
     }
 
+    private Set<Sensor> getSensors(boolean active, int count) {
+        String str = UUID.randomUUID().toString();
+
+        Set<Sensor> sensors = new HashSet<>();
+        for (int i = 0; i <= count; i++) {
+            Sensor sensor = new Sensor(str, SensorType.DOOR);
+            sensors.add(sensor);
+        }
+        sensors.forEach(it -> it.setActive(active));
+        return sensors;
+    }
 }
