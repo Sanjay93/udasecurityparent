@@ -14,11 +14,12 @@ import javax.swing.*;
 public class DisplayPanel extends JPanel implements StatusListener {
 
     private JLabel currentStatusLabel;
+    private SecurityService securityService;
 
     public DisplayPanel(SecurityService securityService) {
         super();
         setLayout(new MigLayout());
-
+        this.securityService = securityService;
         securityService.addStatusListener(this);
 
         JLabel panelLabel = new JLabel("Very Secure Home Security");

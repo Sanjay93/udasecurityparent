@@ -66,6 +66,7 @@ public class AwsImageService implements ImageService{
      * @param confidenceThreshhold Minimum threshhold to consider for cat. For example, 90.0f would require 90% confidence minimum
      * @return
      */
+    @Override
     public boolean imageContainsCat(BufferedImage image, float confidenceThreshhold) {
         Image awsImage = null;
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {

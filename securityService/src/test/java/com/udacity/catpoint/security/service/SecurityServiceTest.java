@@ -1,43 +1,41 @@
 package com.udacity.catpoint.security.service;
 
 import com.udacity.catpoint.image.service.ImageService;
-import com.udacity.catpoint.security.application.StatusListener;
 import com.udacity.catpoint.security.data.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentMatchers;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.awt.image.BufferedImage;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.prefs.BackingStoreException;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atMostOnce;
 
 
 /**
  * Unit test for simple App.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class SecurityServiceTest {
 
-    public static final String SENSOR = "sensor";
-
-    @Mock
-    private StatusListener statusListener;
+    private static final String SENSOR = "testsensor";
 
     @InjectMocks
     private SecurityService securityService;
 
     @Mock
-    private PretendDatabaseSecurityRepositoryImpl pretendDatabaseSecurityRepository;
+    private SecurityRepository securityRepository;
 
     @Mock
     private ImageService imageService;
@@ -50,20 +48,32 @@ public class SecurityServiceTest {
         securityService.removeSensor(sensor);
     }
 
+    private Set<Sensor> getSensors(boolean active, int count) {
+        String randomString = UUID.randomUUID().toString();
+
+        Set<Sensor> sensors = new HashSet<>();
+        for (int i = 0; i <= count; i++) {
+            sensors.add(new Sensor(randomString, SensorType.DOOR));
+        }
+        sensors.forEach(it -> it.setActive(active));
+        return sensors;
+    }
+
     /*
      * 1. If alarm is armed and a sensor becomes activated, put the system into pending alarm status.
      */
-    @Test
-    public void armedAlarmActivatedSensorPendingAlarmResult() {
+//    @Test
+    @ParameterizedTest
+    @EnumSource(value = ArmingStatus.class, names = {"ARMED_HOME", "ARMED_AWAY"})
+    public void armedAlarmActivatedSensorPendingAlarmResult(ArmingStatus armingStatus) {
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
-        sensor.setActive(false);
-        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
-        Mockito.when(pretendDatabaseSecurityRepository.getAlarmStatus())
-                .thenReturn(AlarmStatus.NO_ALARM);
+        Mockito.when(securityRepository.getSensors()).thenReturn(getSensors(true, 2));
+        Mockito.when(securityService.getArmingStatus()).thenReturn(armingStatus);
+        Mockito.when(securityService.getAlarmStatus()).thenReturn(AlarmStatus.NO_ALARM);
         securityService.changeSensorActivationStatus(sensor, true);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
-        assertNotNull(securityService.getAlarmStatus());
+        ArgumentCaptor<AlarmStatus> captor = ArgumentCaptor.forClass(AlarmStatus.class);
+        Mockito.verify(securityRepository, atMostOnce()).setAlarmStatus(captor.capture());
+        assertEquals(captor.getValue(), AlarmStatus.PENDING_ALARM);
     }
 
     /*
@@ -73,11 +83,11 @@ public class SecurityServiceTest {
     public void armedAlarmActivatedSensorPendingAlarmAlarmResult() {
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
-        Mockito.when(pretendDatabaseSecurityRepository.getAlarmStatus())
+        Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.PENDING_ALARM);
         securityService.changeSensorActivationStatus(sensor, true);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        Mockito.verify(securityRepository, Mockito.times(1))
+                .setAlarmStatus(AlarmStatus.ALARM);
     }
 
     /*
@@ -88,11 +98,11 @@ public class SecurityServiceTest {
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
         sensor.setActive(false);
-        Mockito.when(pretendDatabaseSecurityRepository.getAlarmStatus())
+        Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.PENDING_ALARM);
         securityService.setAlarmStatus(AlarmStatus.PENDING_ALARM);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        Mockito.verify(securityRepository, Mockito.times(1))
+                .setAlarmStatus(AlarmStatus.NO_ALARM);
     }
 
     /*
@@ -103,10 +113,10 @@ public class SecurityServiceTest {
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
         sensor.setActive(true);
-        Mockito.when(pretendDatabaseSecurityRepository.getAlarmStatus())
+        Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.ALARM);
         securityService.changeSensorActivationStatus(sensor, false);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(0))
+        Mockito.verify(securityRepository, Mockito.times(0))
                 .setAlarmStatus(any(AlarmStatus.class));
     }
 
@@ -118,10 +128,10 @@ public class SecurityServiceTest {
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
         sensor.setActive(true);
-        Mockito.when(pretendDatabaseSecurityRepository.getAlarmStatus())
+        Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.PENDING_ALARM);
         securityService.changeSensorActivationStatus(sensor, true);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
+        Mockito.verify(securityRepository, Mockito.times(1))
                 .setAlarmStatus(any(AlarmStatus.class));
     }
 
@@ -133,10 +143,10 @@ public class SecurityServiceTest {
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
         sensor.setActive(false);
-        Mockito.when(pretendDatabaseSecurityRepository.getAlarmStatus())
+        Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.PENDING_ALARM);
         securityService.changeSensorActivationStatus(sensor, false);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(0))
+        Mockito.verify(securityRepository, Mockito.times(0))
                 .setAlarmStatus(any(AlarmStatus.class));
     }
 
@@ -150,11 +160,11 @@ public class SecurityServiceTest {
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Mockito.when(imageService.imageContainsCat(any(), ArgumentMatchers.anyFloat()))
                 .thenReturn(Boolean.TRUE);
-        Mockito.when(pretendDatabaseSecurityRepository.getArmingStatus())
+        Mockito.when(securityRepository.getArmingStatus())
                 .thenReturn(ArmingStatus.ARMED_HOME);
         securityService.processImage(bufferedImage);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        Mockito.verify(securityRepository, Mockito.times(1))
+                .setAlarmStatus(AlarmStatus.ALARM);
     }
 
     /*
@@ -170,8 +180,8 @@ public class SecurityServiceTest {
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
         sensor.setActive(false);
         securityService.processImage(bufferedImage);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        Mockito.verify(securityRepository, Mockito.times(1))
+                .setAlarmStatus(AlarmStatus.NO_ALARM);
     }
 
     /*
@@ -180,8 +190,8 @@ public class SecurityServiceTest {
     @Test
     public void systemDisarmedChangeToNoAlarm() {
         securityService.setArmingStatus(ArmingStatus.DISARMED);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        Mockito.verify(securityRepository, Mockito.times(1))
+                .setAlarmStatus(AlarmStatus.NO_ALARM);
     }
 
     /*
@@ -198,12 +208,22 @@ public class SecurityServiceTest {
      */
     @Test
     public void armedHomeCatDetectedChangeToAlarm() {
+
         BufferedImage bufferedImage = new BufferedImage(240, 240, BufferedImage.TYPE_INT_ARGB);
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Mockito.when(imageService.imageContainsCat(any(), ArgumentMatchers.anyFloat()))
                 .thenReturn(Boolean.TRUE);
+        Mockito.when(securityRepository.getArmingStatus())
+                .thenReturn(ArmingStatus.ARMED_HOME);
         securityService.processImage(bufferedImage);
-        Mockito.verify(pretendDatabaseSecurityRepository, Mockito.times(1))
-                .setAlarmStatus(any(AlarmStatus.class));
+        Mockito.verify(securityRepository, Mockito.times(1))
+                .setAlarmStatus(AlarmStatus.ALARM);
     }
+
+    @ParameterizedTest
+    @EnumSource(ArmingStatus.class)
+    public void setArmingStatusMethod(ArmingStatus status) {
+        securityService.setArmingStatus(status);
+    }
+
 }
