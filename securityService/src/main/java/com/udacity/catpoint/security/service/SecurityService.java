@@ -37,23 +37,20 @@ public class SecurityService {
      * @param armingStatus
      */
     public void setArmingStatus(ArmingStatus armingStatus) {
-        switch (armingStatus) {
-            case DISARMED:
-                setAlarmStatus(AlarmStatus.NO_ALARM);
-                break;
-            case ARMED_HOME:
-            case ARMED_AWAY: {
-                Set<Sensor> sensors = getSensors().stream().map(sensor -> {
-                    sensor.setActive(false);
-                    return sensor;
-                }).collect(Collectors.toSet());
-                sensors.forEach(sensor -> securityRepository.updateSensor(sensor));
-            }
+        if (armingStatus == ArmingStatus.DISARMED) {
+            setAlarmStatus(AlarmStatus.NO_ALARM);
+        } else if (armingStatus == ArmingStatus.ARMED_HOME || armingStatus == ArmingStatus.ARMED_AWAY) {
+            changeActivationForSensors();
         }
-//        if (armingStatus == ArmingStatus.DISARMED) {
-//            setAlarmStatus(AlarmStatus.NO_ALARM);
-//        }
         securityRepository.setArmingStatus(armingStatus);
+    }
+
+    private void changeActivationForSensors() {
+        Set<Sensor> sensors = getSensors().stream().map(sensor -> {
+            sensor.setActive(false);
+            return sensor;
+        }).collect(Collectors.toSet());
+        sensors.forEach(sensor -> securityRepository.updateSensor(sensor));
     }
 
     /**
@@ -65,10 +62,14 @@ public class SecurityService {
     private void catDetected(Boolean cat) {
         if (cat && getArmingStatus() == ArmingStatus.ARMED_HOME) {
             setAlarmStatus(AlarmStatus.ALARM);
-        } else if (getSensors().stream().noneMatch(Sensor::getActive)) {
+        } else if (!cat && allSensorsInActive(false)) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
         }
         statusListeners.forEach(sl -> sl.catDetected(cat));
+    }
+
+    private boolean allSensorsInActive(boolean activeState) {
+        return getSensors().stream().allMatch(it -> it.getActive() == activeState);
     }
 
     /**
@@ -90,8 +91,8 @@ public class SecurityService {
      * @param status
      */
     public void setAlarmStatus(AlarmStatus status) {
-        if (getSensors().stream().noneMatch(Sensor::getActive)
-                && AlarmStatus.PENDING_ALARM.equals(securityRepository.getAlarmStatus())) {
+        if (allSensorsInActive(false)
+                && AlarmStatus.PENDING_ALARM.equals(status)) {
             securityRepository.setAlarmStatus(AlarmStatus.NO_ALARM);
         } else {
             securityRepository.setAlarmStatus(status);
@@ -107,12 +108,8 @@ public class SecurityService {
             return; //no problem if the system is disarmed
         }
         switch (securityRepository.getAlarmStatus()) {
-            case NO_ALARM:
-                setAlarmStatus(AlarmStatus.PENDING_ALARM);
-                break;
-            case PENDING_ALARM:
-                setAlarmStatus(AlarmStatus.ALARM);
-                break;
+            case NO_ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
+            case PENDING_ALARM -> setAlarmStatus(AlarmStatus.ALARM);
         }
     }
 
@@ -120,12 +117,11 @@ public class SecurityService {
      * Internal method for updating the alarm status when a sensor has been deactivated
      */
     private void handleSensorDeactivated() {
-        switch (securityRepository.getAlarmStatus()) {
-            case PENDING_ALARM: {
-                if (getSensors().stream().noneMatch(Sensor::getActive)) {
-                    setAlarmStatus(AlarmStatus.NO_ALARM);
-                }
-            }
+        if (securityRepository.getArmingStatus() == ArmingStatus.DISARMED) {
+            return;
+        }
+        if (securityRepository.getAlarmStatus() == AlarmStatus.PENDING_ALARM) {
+            setAlarmStatus(AlarmStatus.NO_ALARM);
         }
     }
 
