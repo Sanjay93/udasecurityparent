@@ -11,5 +11,4 @@ module com.udacity.catpoint.security.securityService {
     exports com.udacity.catpoint.security.application;
     exports com.udacity.catpoint.security.data;
     opens com.udacity.catpoint.security.service;
-    opens com.udacity.catpoint.security.application;
 }
