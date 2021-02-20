@@ -1,10 +1,12 @@
 package com.udacity.catpoint.security.service;
 
 import com.udacity.catpoint.image.service.ImageService;
+import com.udacity.catpoint.security.application.StatusListener;
 import com.udacity.catpoint.security.data.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -12,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.awt.image.BufferedImage;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -40,6 +43,9 @@ public class SecurityServiceTest {
     @Mock
     private ImageService imageService;
 
+    @Mock
+    private StatusListener statusListener;
+
     @Test
     public void addAndRemoveSensor() {
         Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
@@ -51,7 +57,6 @@ public class SecurityServiceTest {
     /*
      * 1. If alarm is armed and a sensor becomes activated, put the system into pending alarm status.
      */
-//    @Test
     @ParameterizedTest
     @EnumSource(value = ArmingStatus.class, names = {"ARMED_HOME", "ARMED_AWAY"})
     public void armedAlarmActivatedSensorPendingAlarmResult(ArmingStatus armingStatus) {
@@ -226,4 +231,36 @@ public class SecurityServiceTest {
         sensors.forEach(it -> it.setActive(active));
         return sensors;
     }
+
+    @Test
+    public void updateSensorWhenArmed() {
+        ArmingStatus armingStatus = ArmingStatus.ARMED_HOME;
+        Sensor sensor = new Sensor("test_sensor", SensorType.DOOR);
+        sensor.setActive(true);
+        Mockito.when(securityRepository.getSensors())
+                .thenReturn(Collections.singleton(sensor));
+        securityService.setArmingStatus(armingStatus);
+        Mockito.verify(securityRepository, Mockito.times(1)).updateSensor(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"NO_ALARM,DOOR,true", "NO_ALARM,DOOR,false","PENDING_ALARM,DOOR,true", "PENDING_ALARM,DOOR,false",
+            "PENDING_ALARM,WINDOW,true", "PENDING_ALARM,WINDOW,false"})
+    public void changeSensorActivationStatusWithAllAlarms(AlarmStatus alarmStatus, SensorType sensorType,
+                                                          Boolean active) {
+        Mockito.when(securityRepository.getAlarmStatus())
+                .thenReturn(AlarmStatus.PENDING_ALARM);
+        Sensor sensor = new Sensor("udacitySensor", sensorType);
+        sensor.setActive(true);
+        securityService.changeSensorActivationStatus(sensor, active);
+        sensor.setActive(false);
+        securityService.changeSensorActivationStatus(sensor, active);
+    }
+
+    @Test
+    public void testAddAndRemoveStatusListener() {
+        securityService.addStatusListener(statusListener);
+        securityService.removeStatusListener(statusListener);
+    }
+
 }
