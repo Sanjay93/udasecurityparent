@@ -75,13 +75,14 @@ public class SecurityServiceTest {
      */
     @Test
     public void armedAlarmActivatedSensorPendingAlarmAlarmResult() {
-        Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
-        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
         Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.PENDING_ALARM);
+        Sensor sensor = new Sensor(SENSOR, SensorType.DOOR);
+        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
+
         securityService.changeSensorActivationStatus(sensor, true);
         Mockito.verify(securityRepository, Mockito.times(1))
-                .setAlarmStatus(AlarmStatus.ALARM);
+                .setAlarmStatus(any(AlarmStatus.class));
     }
 
     /*
@@ -251,6 +252,12 @@ public class SecurityServiceTest {
         Mockito.when(securityRepository.getAlarmStatus())
                 .thenReturn(AlarmStatus.PENDING_ALARM);
         Sensor sensor = new Sensor("udacitySensor", sensorType);
+        sensor.setActive(true);
+        securityService.changeSensorActivationStatus(sensor, active);
+        sensor.setActive(false);
+        securityService.changeSensorActivationStatus(sensor, active);
+        Mockito.when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.DISARMED);
+        sensor = new Sensor("udacitySensor", sensorType);
         sensor.setActive(true);
         securityService.changeSensorActivationStatus(sensor, active);
         sensor.setActive(false);

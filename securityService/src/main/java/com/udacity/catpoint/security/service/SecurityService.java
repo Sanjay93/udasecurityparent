@@ -24,6 +24,7 @@ public class SecurityService {
     private ImageService imageService;
     private SecurityRepository securityRepository;
     private Set<StatusListener> statusListeners = new HashSet<>();
+    private static boolean isCatDetected = false;
 
     public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
         this.securityRepository = securityRepository;
@@ -40,6 +41,9 @@ public class SecurityService {
         if (armingStatus == ArmingStatus.DISARMED) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
         } else if (armingStatus == ArmingStatus.ARMED_HOME || armingStatus == ArmingStatus.ARMED_AWAY) {
+            if (isCatDetected) {
+                setAlarmStatus(AlarmStatus.ALARM);
+            }
             changeActivationForSensors();
         }
         securityRepository.setArmingStatus(armingStatus);
@@ -62,14 +66,14 @@ public class SecurityService {
     private void catDetected(Boolean cat) {
         if (cat && getArmingStatus() == ArmingStatus.ARMED_HOME) {
             setAlarmStatus(AlarmStatus.ALARM);
-        } else if (!cat && allSensorsInActive(false)) {
+        } else if (allSensorsInActive(false)) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
         }
         statusListeners.forEach(sl -> sl.catDetected(cat));
     }
 
     private boolean allSensorsInActive(boolean activeState) {
-        return getSensors().stream().allMatch(it -> it.getActive() == activeState);
+        return getSensors().stream().noneMatch(Sensor::getActive);
     }
 
     /**
@@ -92,7 +96,7 @@ public class SecurityService {
      */
     public void setAlarmStatus(AlarmStatus status) {
         if (allSensorsInActive(false)
-                && AlarmStatus.PENDING_ALARM.equals(status)) {
+                && AlarmStatus.PENDING_ALARM.equals(securityRepository.getAlarmStatus())) {
             securityRepository.setAlarmStatus(AlarmStatus.NO_ALARM);
         } else {
             securityRepository.setAlarmStatus(status);
@@ -150,7 +154,8 @@ public class SecurityService {
      * @param currentCameraImage
      */
     public void processImage(BufferedImage currentCameraImage) {
-        catDetected(imageService.imageContainsCat(currentCameraImage, 50.0f));
+        isCatDetected = imageService.imageContainsCat(currentCameraImage, 50.0f);
+        catDetected(isCatDetected);
     }
 
     public AlarmStatus getAlarmStatus() {
